@@ -1,0 +1,108 @@
+package Default;
+
+import com.aspose.cells.*;
+
+public class main {
+
+    public static void main(String[] args) throws Exception {
+
+        Workbook workbook = new Workbook("hazır_tablo.xlsx");
+
+        Worksheet dataSheet = workbook.getWorksheets().get(0);                                 // İlk sayfa veri kaynağı olacak
+        Worksheet pivotSheet = workbook.getWorksheets().add("Pivot");                          // Yeni pivot çalışma sayfası oluşturma
+
+        PivotTableCollection pivotTables = pivotSheet.getPivotTables();
+     
+        Cells cells = dataSheet.getCells();
+        
+        int maxRow = cells.getMaxDataRow();
+        
+        cells.insertColumns(5, 4);                                                             // Yeni sütunları ekleyin
+        cells.get(0, 5).putValue("Ay");
+        cells.get(0, 6).putValue("3 Aylık Dönem");
+        cells.get(0, 7).putValue("Yıl");
+        cells.get(0, 8).putValue("Ay İsmi");
+
+        for (int i = 1; i <= maxRow; i++) {
+            Cell dateCell = cells.get(i, 4);                                                   // 5. sütundaki tarih hücresini al
+
+            if (dateCell.getType() == CellValueType.IS_DATE_TIME) {
+                DateTime dateTime = dateCell.getDateTimeValue();
+
+                cells.get(i, 7).putValue(dateTime.getYear());                                  // Yıl sütununa günü yerleştir
+                cells.get(i, 5).putValue(dateTime.getMonth());                                 // Ay sütununa ayı yerleştir
+                int quarter = (dateTime.getMonth() - 1) / 3 + 1;                               // Aydan çeyrek hesapla
+                cells.get(i, 6).putValue(quarter);                                             // Çeyrek sütununa çeyreği yerleştir
+                
+                String monthName = getMonthName(dateTime.getMonth());                          // Ay isimlerini ekleyin
+                cells.get(i, 8).putValue(monthName);                                           // 3 Aylık Dönem sütununa 3 Aylık Dönemi yerleştir
+            }
+        }
+
+        Style numericStyle = workbook.createStyle();                                           // Sayısal format stilini oluşturun
+        numericStyle.setNumber(1);
+
+        for (int i = 1; i <= maxRow; i++) {                                                    // Ay, 3 Aylık Dönem ve Yıl sütunlarına sayısal formatı uygulayın
+            cells.get(i, 5).setStyle(numericStyle);                                            // Ay sütunu
+            cells.get(i, 6).setStyle(numericStyle);                                            // 3 Aylık Dönem sütunu
+            cells.get(i, 7).setStyle(numericStyle);                                            // Yıl sütunu
+        }
+        
+        String sourceData = "Sheet1!A1:I" + (maxRow + 1);                                      
+        String destCellName = "A1"; 
+        
+        int index = pivotTables.add(sourceData, destCellName, "PivotTable");
+        
+        PivotTable pivotTable = pivotTables.get(index);
+
+        pivotTable.setRowGrand(true);
+        pivotTable.setColumnGrand(true);
+        pivotTable.setAutoFormat(true);
+        pivotTable.setAutoFormatType(PivotTableAutoFormatType.REPORT_6);
+
+        pivotTable.addFieldToArea(PivotFieldType.ROW, 1);
+        pivotTable.addFieldToArea(PivotFieldType.ROW, 0);
+        pivotTable.addFieldToArea(PivotFieldType.DATA, 2);
+        pivotTable.addFieldToArea(PivotFieldType.DATA, 3);
+        pivotTable.addFieldToArea(PivotFieldType.COLUMN, 8);                                   // Ay İsmi kısmını sütuna ekle
+        pivotTable.addFieldToArea(PivotFieldType.COLUMN, pivotTable.getDataField());           // Değerler kısımını sütuna yerleştir
+        pivotTable.addFieldToArea(PivotFieldType.PAGE, 7);                                     // Yıl kısmını filtreye ekle
+        pivotTable.addFieldToArea(PivotFieldType.PAGE, 6);                                     // 3 Aylık Dönem kısmını filtreye ekle 
+
+        PivotField monthNameField = pivotTable.getColumnFields().get(0);                       // Ay isimlerini küçükten büyüğe sıralama
+        monthNameField.setAutoSort(true);
+        monthNameField.setAscendSort(true);
+
+        double exchangeRate = 0.028;                                                           // Euro'ya dönüşüm kuru
+        
+        Style euroStyle = workbook.createStyle();                                              // Euro stilini oluşturma
+        euroStyle.setCustom("€0.00");
+        
+        Style thousandSeparatorStyle = workbook.createStyle();                                 // Binlik ayıraç stilini oluşturma
+        thousandSeparatorStyle.setCustom("#,###"); 
+
+        for (int i = 0; i <= cells.getMaxDataRow(); i++) {
+            Cell cell3 = cells.get(i, 2);                                                      // İkinci sütundaki hücreleri al
+            if (cell3.getType() == CellValueType.IS_NUMERIC) {
+                double value = cell3.getDoubleValue();
+                cell3.setValue(value * exchangeRate);                                          // Değeri euro kuru ile çarp
+                cell3.setStyle(euroStyle);                                                     // Euro simgesi stilini uygula
+            }
+            Cell cell4 = cells.get(i, 3);                                                      // 3. sütundaki hücreleri al
+            if (cell4.getType() == CellValueType.IS_NUMERIC) {
+                cell4.setStyle(thousandSeparatorStyle);                                        // Binlik ayıraç stilini hücreye uygula
+            }
+        }
+        
+        pivotTable.getDataFields().get(0).setNumberFormat(euroStyle.getCustom());              // 1. data alanına euro simgesi uyguluyor
+        pivotTable.getDataFields().get(1).setNumberFormat(thousandSeparatorStyle.getCustom()); // 2. data alanına binlik ayıraç uyguluyor
+        
+        workbook.save("pivot_tablo.xlsx");
+    }
+
+    // Ay isimlerini almak için fonksiyon
+    public static String getMonthName(int month) {
+        String[] monthNames = {"Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"};
+        return monthNames[month - 1];
+    }
+}
