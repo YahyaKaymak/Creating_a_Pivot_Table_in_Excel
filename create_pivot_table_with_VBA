@@ -1,0 +1,87 @@
+Sub Pİvot()
+
+    Dim ws As Worksheet
+    Dim pivotWs As Worksheet
+    Dim pvtCache As PivotCache
+    Dim pvtTable As PivotTable
+    Dim pivotRange As Range
+    Dim pf As PivotField
+    
+    ' Tablonun bulunduğu sayfayı ayarlamka için
+    Set ws = ThisWorkbook.Sheets("Sheet1") ' Değiştirebiliriz
+    
+    ' Pivot tablonun oluşturulacağı yeni bir sayfa eklemek için
+    Set pivotWs = ThisWorkbook.Sheets.Add
+    pivotWs.Name = "PivotTableSheet" ' İsteğe bağlı olarak ismi değiştirebiliriz
+    
+    ' Verinin bulunduğu aralığı belirlemek için
+    Set pivotRange = ws.Range("A1").CurrentRegion ' Verinin bulunduğu aralığı belirtiriz
+    
+    ' Pivot cache oluşturmak için
+    Set pvtCache = ThisWorkbook.PivotCaches.Create( _
+        SourceType:=xlDatabase, _
+        SourceData:=pivotRange)
+    
+    ' Pivot tabloyu eklemek için
+    Set pvtTable = pvtCache.CreatePivotTable( _
+        TableDestination:=pivotWs.Cells(1, 1), _
+        TableName:="PivotTable1")
+        
+    With pvtTable.PivotFields("Meslek")    ' "Meslek" alanını tablo yapınıza göre değiştirebiliriz
+        .Orientation = xlRowField
+        .Position = 1
+        
+    End With
+    
+    With pvtTable.PivotFields("İsim")
+        .Orientation = xlRowField
+        .Position = 2
+        
+    End With
+    
+    With pvtTable.PivotFields("Harf")
+        .Orientation = xlRowField
+        .Position = 3
+        
+    End With
+    
+    With pvtTable.PivotFields("Maaş")
+        .Orientation = xlDataField
+        .Function = xlSum                  ' Toplam fonksiyonunu kullanıyoruz, gerekirse değiştirebiliriz
+        .NumberFormat = "€#.##0"
+    End With
+    
+    With pvtTable.PivotFields("Çalıştığı Yıl")
+        .Orientation = xlDataField
+        .Function = xlSum
+        .NumberFormat = "#.##0"
+    End With
+    
+    ' Calculated Fields Formülü Hesaplamak için
+    pvtTable.CalculatedFields.Add "YeniHesaplama", "=IFERROR(Maaş / Çalıştığı Yıl, 0)", True
+    With pvtTable.PivotFields("YeniHesaplama")
+        .Orientation = xlDataField
+        .Function = xlSum
+        .NumberFormat = "#.##0.0"        ' İki ondalık basamak
+    End With
+    
+
+    pvtTable.RowAxisLayout xlTabularRow
+    
+    Set pf = pvtTable.PivotFields("Tarih") ' "Tarih" alanını al
+    
+    pf.Orientation = xlColumnField         ' Alanı satırlara ekleyin
+    pf.Position = 1
+    
+    pf.LabelRange.Group Start:=7306, End:=73051, Periods:=Array(False, False, False, False, True, True, True)
+
+    With pvtTable.PivotFields("Üç aylık dönem (Tarih)")
+        .Orientation = xlPageField
+    End With
+    
+    With pvtTable.PivotFields("Yıl (Tarih)")
+        .Orientation = xlPageField
+    End With
+    
+    pvtTable.RowAxisLayout xlCompactRow
+End Sub
